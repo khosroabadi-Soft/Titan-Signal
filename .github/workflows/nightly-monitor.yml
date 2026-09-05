@@ -1,0 +1,68 @@
+# Titan Signal v4.0.3 — Night Final Report
+# LOCKED: do not use ${{ env.* }} in job name (GitHub rejects it)
+name: Titan Signal Night Final v4.0.3
+
+on:
+  schedule:
+    # 23:00 Tehran = 19:30 UTC
+    - cron: '30 19 * * *'
+    # 00:00 Tehran = 20:30 UTC
+    - cron: '30 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-final:
+    name: Night Final v4.0.3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ensure data directories
+        run: mkdir -p data/signals
+
+      - name: Show version
+        run: |
+          echo "Titan Signal version: 4.0.3"
+          python -c "from titansignal.version import VERSION_LABEL; print(VERSION_LABEL)"
+
+      - name: Night final (force close + daily report)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TITAN_DATABASE_URL: ${{ secrets.TITAN_DATABASE_URL }}
+          TITAN_MONITOR_MODE: final
+        run: python monitor.py
+
+      - name: Commit data to repository
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p data/signals
+          git add -f data/ || true
+          if git diff --staged --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "chore(data): v4.0.3 night final [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin HEAD || true
+              git push && exit 0
+              sleep 5
+            done
+            exit 1
+          fi

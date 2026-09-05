@@ -1,0 +1,22 @@
+services:
+  bot:
+    build: .
+    container_name: titan-signal-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - titan-data:/app/data
+    command: python bot.py
+
+  monitor:
+    build: .
+    container_name: titan-signal-monitor
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - titan-data:/app/data
+    # cron: every 2 hours
+    entrypoint: /bin/sh -c "while true; do python monitor.py; sleep 7200; done"
+
+volumes:
+  titan-data:

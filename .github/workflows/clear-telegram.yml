@@ -1,0 +1,71 @@
+# Manual only — deletes Telegram messages by IDs stored in SQLite
+name: Clear Telegram Channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type yes to confirm delete'
+        required: true
+        type: string
+        default: 'no'
+      delete_limit:
+        description: 'Max messages to delete'
+        required: false
+        type: string
+        default: '3000'
+
+permissions:
+  contents: write
+
+jobs:
+  clear-channel:
+    name: Clear Channel Messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Confirm deletion
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "yes" ]; then
+            echo "Refused: set confirm=yes"
+            exit 1
+          fi
+          echo "Confirmed. limit=${{ github.event.inputs.delete_limit }}"
+
+      - name: Clear channel messages
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DELETE_LIMIT: ${{ github.event.inputs.delete_limit }}
+          CLEAR_DB_IDS: "1"
+        run: python scripts/clear_telegram_channel.py
+
+      - name: Commit DB updates
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/ || true
+          if git diff --staged --quiet; then
+            echo "No DB changes."
+          else
+            git commit -m "chore(data): clear telegram message ids [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin HEAD || true
+              git push && exit 0
+              sleep 3
+            done
+          fi
