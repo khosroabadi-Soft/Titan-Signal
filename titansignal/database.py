@@ -243,8 +243,31 @@ def update_signal_exit(
                 sig.margin_roi_pct = margin_roi_pct
             sig.hit_price = exit_price
             sig.hit_time = sig.exit_time
+            # capture CSV keys before close
+            _sym = sig.symbol
+            _dir = sig.direction
+            _sc = sig.scenario_id
+            _issued = sig.issued_at_tehran
             session.commit()
             logger.info(f"Signal #{signal_id} exit: {outcome} @ {exit_price}")
+            try:
+                from .signal_store import update_signal_csv_row, tehran_time_str
+                hit_tehran = tehran_time_str(sig.exit_time) if sig.exit_time else tehran_time_str()
+                update_signal_csv_row(
+                    symbol=_sym,
+                    direction=_dir,
+                    scenario_id=_sc or "",
+                    issued_at_tehran=_issued or "",
+                    status=status or "CLOSED",
+                    outcome=outcome or "",
+                    hit_time_tehran=hit_tehran,
+                    hit_price=exit_price,
+                    broker_fee=broker_fee,
+                    final_pnl_usd=final_pnl_usd,
+                    return_pct=return_pct,
+                )
+            except Exception as csv_e:
+                logger.error(f"CSV sync on exit failed: {csv_e}")
     except Exception as e:
         session.rollback()
         logger.error(f"DB update_signal_exit error: {e}")
