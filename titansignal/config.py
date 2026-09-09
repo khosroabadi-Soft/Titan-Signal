@@ -159,7 +159,7 @@ SCENARIOS = {
         'allowed_filters': [],
     },
 }
-ACTIVE_SCENARIOS = ['S1', 'S2', 'S3', 'B1', 'B2']
+ACTIVE_SCENARIOS = ['S1', 'S3', 'B1']  # S2/B2 disabled
 
 
 def scenario_display_name(sc):

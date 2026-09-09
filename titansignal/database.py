@@ -341,7 +341,7 @@ def save_daily_summary(
         _open = open_count or open_signals or 0
         _tp = tp or 0
         _sl = sl or stop or 0
-        _manual = manual or max_hold or 0
+        _manual = manual or 0  # do NOT map max_hold here (was causing false 'manual closes')
         _trail = trail or 0
         _wr = win_rate or wr or 0.0
         _pnl = total_pnl or pnl or 0.0

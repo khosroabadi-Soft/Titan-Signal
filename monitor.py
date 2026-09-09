@@ -67,7 +67,7 @@ def build_daily_report(report_date: str, closed_today: list, still_open: list) -
         f"   🔴 استاپ: {stops}",
         f"   🟢 تریل: {trails}",
         f"   ⏰ سقف زمان: {holds}",
-        f"   ⚠️ اجباری پایان‌روز: {forces}",
+        f"   ⚠️ بستن سیستمی پایان‌روز (EOD): {forces}",
         f"✅ برد: {wins} | ❌ باخت: {losses}",
         f"🎯 نرخ برد (بسته): <b>{wr:.1f}%</b>",
         f"💰 PnL خالص روز: <b>{pnl:+.4f}$</b>",
@@ -159,15 +159,21 @@ async def main_async():
     wins = sum(1 for x in closed if (x.get("net_pnl") or 0) > 0)
     wr = (wins / len(closed) * 100) if closed else 0.0
 
+    # max_hold / eod are system exits — NEVER counted as manual_closes
+    forces = sum(1 for x in closed if x.get("outcome") == "EOD_FORCE_CLOSE")
     save_daily_summary(
         date_str=report_date,
         total=len(closed) + len(still_open),
         open_count=len(still_open),
         sl=stops,
         trail=trails,
-        max_hold=holds,
+        manual=0,
+        max_hold=0,  # explicit: do not store system exits as manual
+        tp=forces,   # reuse tp_hits column for EOD force-close count (display only in DB)
         win_rate=wr,
         total_pnl=pnl,
+        eod_force=forces,
+        max_hold_count=holds,
     )
 
     if force:

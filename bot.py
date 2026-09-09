@@ -32,6 +32,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+TEHRAN_TZ = ZoneInfo("Asia/Tehran")
+
+def is_quiet_hours(now=None) -> bool:
+    """20:00–23:30 Tehran: manage open signals only, no new signals."""
+    now = now or datetime.now(TEHRAN_TZ)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=TEHRAN_TZ)
+    else:
+        now = now.astimezone(TEHRAN_TZ)
+    mins = now.hour * 60 + now.minute
+    return (20 * 60) <= mins < (23 * 60 + 30)
+
 KUCOIN_URL = "https://api.kucoin.com/api/v1/market/candles"
 INTERVALS = {
     "1m": "1min", "5m": "5min", "15m": "15min",
@@ -186,19 +198,21 @@ async def main_async():
         if i < len(closed) - 1:
             await asyncio.sleep(1.1)
 
-    # 2) Fetch market data & maybe open new signals
-    logger.info("Phase 2: scan for new signals...")
-    async with aiohttp.ClientSession() as session:
-        # sequential-ish batches to reduce KuCoin 429
-        batch = 4
-        for start in range(0, len(SYMBOLS), batch):
-            chunk = SYMBOLS[start:start + batch]
-            tasks = [fetch_all_timeframes(session, sym) for sym in chunk]
-            results = await asyncio.gather(*tasks)
-            for j, data in enumerate(results):
-                idx = start + j + 1
-                await process_symbol(chunk[j], data, idx, len(SYMBOLS))
-            await asyncio.sleep(0.8)
+    # 2) New signals — skipped in quiet hours 20:00–23:30 Tehran
+    if is_quiet_hours():
+        logger.info("Phase 2: SKIPPED (quiet hours 20:00–23:30 Tehran — manage only)")
+    else:
+        logger.info("Phase 2: scan for new signals...")
+        async with aiohttp.ClientSession() as session:
+            batch = 4
+            for start in range(0, len(SYMBOLS), batch):
+                chunk = SYMBOLS[start:start + batch]
+                tasks = [fetch_all_timeframes(session, sym) for sym in chunk]
+                results = await asyncio.gather(*tasks)
+                for j, data in enumerate(results):
+                    idx = start + j + 1
+                    await process_symbol(chunk[j], data, idx, len(SYMBOLS))
+                await asyncio.sleep(0.8)
 
     logger.info("Titan Signal — Cycle complete")
 

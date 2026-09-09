@@ -1,12 +1,10 @@
-# Titan Signal v4.0.3 — Night Final Report
-# LOCKED: do not use ${{ env.* }} in job name (GitHub rejects it)
-name: Titan Signal Night Final v4.0.3
+# Titan Signal v4.0.6 — Night Final
+# LOCKED: no ${{ env.* }} in job name
+name: Titan Signal Night Final v4.0.6
 
 on:
   schedule:
-    # 23:00 Tehran = 19:30 UTC
     - cron: '30 19 * * *'
-    # 00:00 Tehran = 20:30 UTC
     - cron: '30 20 * * *'
   workflow_dispatch:
 
@@ -15,7 +13,7 @@ permissions:
 
 jobs:
   run-final:
-    name: Night Final v4.0.3
+    name: Night Final v4.0.6
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -37,7 +35,7 @@ jobs:
 
       - name: Show version
         run: |
-          echo "Titan Signal version: 4.0.3"
+          echo "Titan Signal version: 4.0.6"
           python -c "from titansignal.version import VERSION_LABEL; print(VERSION_LABEL)"
 
       - name: Night final (force close + daily report)
@@ -58,7 +56,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No data changes."
           else
-            git commit -m "chore(data): v4.0.3 night final [skip ci]"
+            git commit -m "chore(data): v4.0.6 night final [skip ci]"
             for i in 1 2 3; do
               git pull --rebase --autostash origin HEAD || true
               git push && exit 0
