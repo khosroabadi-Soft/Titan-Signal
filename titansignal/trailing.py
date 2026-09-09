@@ -12,9 +12,8 @@ import requests
 from .config import (
     LEVERAGE, MARGIN_USD, POSITION_USD, FEE_PER_TRADE, SCENARIOS,
 )
-from .database import (
-    get_open_signals, update_signal_exit, get_session, Signal,
-)
+from .signal_store import get_open_signals, update_signal_exit
+
 
 logger = logging.getLogger(__name__)
 TEHRAN_TZ = ZoneInfo("Asia/Tehran")
@@ -219,14 +218,18 @@ def process_open_signals(
         if not result:
             continue
         update_signal_exit(
-            signal_id=sig.id,
+            signal_id=str(sig.id),
             exit_price=result["exit_price"],
             outcome=result["outcome"],
             broker_fee=result["fee"],
             final_pnl_usd=result["net_pnl"],
             return_pct=result["ret_pct"],
-            margin_roi_pct=result["margin_roi"],
+            margin_roi_pct=result.get("margin_roi"),
             status="CLOSED",
+            symbol=sig.symbol,
+            direction=sig.direction,
+            scenario_id=sig.scenario_id,
+            issued_at_tehran=sig.issued_at_tehran,
         )
         closed.append({
             "id": sig.id,

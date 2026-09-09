@@ -38,49 +38,68 @@ DEFAULT_DB = ROOT / "data" / "titan_signal.db"
 
 
 def load_message_ids_from_db(db_path: Path) -> List[int]:
-    if not db_path.exists():
-        logger.warning("DB not found: %s", db_path)
+    """Load telegram_message_id from signal CSVs (not market DB)."""
+    ids = []
+    seen = set()
+    sig_dir = ROOT / "data" / "signals"
+    if not sig_dir.is_dir():
+        logger.warning("No signals dir: %s", sig_dir)
         return []
-    conn = sqlite3.connect(str(db_path))
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT telegram_message_id FROM signals "
-            "WHERE telegram_message_id IS NOT NULL "
-            "ORDER BY telegram_message_id DESC"
-        )
-        ids = []
-        seen: Set[int] = set()
-        for (mid,) in cur.fetchall():
-            try:
-                m = int(mid)
-            except (TypeError, ValueError):
-                continue
-            if m > 0 and m not in seen:
-                seen.add(m)
-                ids.append(m)
-        return ids
-    finally:
-        conn.close()
+    for path in sorted(sig_dir.glob("*.csv")):
+        try:
+            import csv
+            with open(path, encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    mid = (row.get("telegram_message_id") or "").strip()
+                    if not mid:
+                        continue
+                    try:
+                        m = int(mid)
+                    except ValueError:
+                        continue
+                    if m > 0 and m not in seen:
+                        seen.add(m)
+                        ids.append(m)
+        except Exception as e:
+            logger.warning("read %s: %s", path, e)
+    ids.sort(reverse=True)
+    return ids
 
 
 def clear_ids_in_db(db_path: Path, ids: List[int]) -> None:
-    if not ids or not db_path.exists():
+    """Clear telegram_message_id on matching CSV rows after delete."""
+    if not ids:
         return
-    conn = sqlite3.connect(str(db_path))
-    try:
-        cur = conn.cursor()
-        cur.executemany(
-            "UPDATE signals SET telegram_message_id = NULL WHERE telegram_message_id = ?",
-            [(i,) for i in ids],
-        )
-        conn.commit()
-        logger.info("Cleared telegram_message_id in DB for %s rows", cur.rowcount)
-    except Exception as e:
-        conn.rollback()
-        logger.error("DB update failed: %s", e)
-    finally:
-        conn.close()
+    import csv
+    idset = set(ids)
+    sig_dir = ROOT / "data" / "signals"
+    if not sig_dir.is_dir():
+        return
+    for path in sig_dir.glob("*.csv"):
+        try:
+            with open(path, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                fields = list(reader.fieldnames or [])
+                rows = list(reader)
+            changed = False
+            for row in rows:
+                mid = (row.get("telegram_message_id") or "").strip()
+                try:
+                    m = int(mid) if mid else None
+                except ValueError:
+                    m = None
+                if m in idset:
+                    row["telegram_message_id"] = ""
+                    changed = True
+            if changed and fields:
+                with open(path, "w", newline="", encoding="utf-8") as f:
+                    w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+                    w.writeheader()
+                    for row in rows:
+                        w.writerow({h: row.get(h, "") for h in fields})
+                logger.info("Cleared message ids in %s", path.name)
+        except Exception as e:
+            logger.error("CSV clear error %s: %s", path, e)
 
 
 async def delete_one(

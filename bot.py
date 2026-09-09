@@ -20,8 +20,8 @@ from zoneinfo import ZoneInfo
 from titansignal.config import SYMBOLS, SCENARIOS, ACTIVE_SCENARIOS
 from titansignal.indicators import calculate_rsi, calculate_ema, calculate_macd, calculate_atr
 from titansignal.rules import generate_signal
-from titansignal.database import init_db, save_signal, has_open_signal
-from titansignal.signal_store import tehran_time_str
+from titansignal.database import init_db, save_candles
+from titansignal.signal_store import save_signal, has_open_signal, tehran_time_str
 from titansignal.trailing import process_open_signals
 from titansignal.telegram_util import send_telegram, fmt_price, outcome_label
 
@@ -78,7 +78,14 @@ async def fetch_all_timeframes(session, symbol):
     settings = {"1m": 1, "5m": 3, "15m": 5, "30m": 7, "1h": 14, "4h": 45}
     tasks = [fetch_timeframe(session, symbol, tf, days) for tf, days in settings.items()]
     results = await asyncio.gather(*tasks)
-    return {tf: candles for tf, candles in results}
+    data = {tf: candles for tf, candles in results}
+    # titan_signal.db = market 1m bars only
+    try:
+        if data.get("1m"):
+            save_candles(symbol, "1m", data["1m"])
+    except Exception as e:
+        logger.warning("save 1m candles %s: %s", symbol, e)
+    return data
 
 
 async def notify_exit(item: dict):
@@ -174,8 +181,8 @@ async def process_symbol(symbol, data, idx, total):
                     max_hold_candles=scenario.get("max_hold_candles", 72),
                     telegram_message_id=signal.get("telegram_message_id"),
                 )
-                if db_id > 0:
-                    logger.info("  DB saved: signal_id=%s telegram_message_id=%s", db_id, signal.get("telegram_message_id"))
+                if db_id:
+                    logger.info("  CSV signal_id=%s telegram_message_id=%s", db_id, signal.get("telegram_message_id"))
         except Exception as e:
             logger.error("  Error in %s for %s: %s", scenario_id, symbol, e)
 

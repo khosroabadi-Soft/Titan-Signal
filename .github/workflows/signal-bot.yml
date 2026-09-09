@@ -1,6 +1,6 @@
-# Titan Signal v4.0.6 — Live Bot
+# Titan Signal v4.1.0 — Live Bot
 # LOCKED: no ${{ env.* }} in job name
-name: Titan Signal Bot v4.0.6
+name: Titan Signal Bot v4.1.0
 
 on:
   schedule:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   run-bot:
-    name: Live Bot v4.0.6
+    name: Live Bot v4.1.0
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -37,7 +37,7 @@ jobs:
 
       - name: Show version
         run: |
-          echo "Titan Signal version: 4.0.6"
+          echo "Titan Signal version: 4.1.0"
           python -c "from titansignal.version import VERSION_LABEL; print(VERSION_LABEL)"
 
       - name: Run Signal Bot (manage + scan)
@@ -57,7 +57,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No data changes."
           else
-            git commit -m "chore(data): v4.0.6 live bot update [skip ci]"
+            git commit -m "chore(data): v4.1.0 live bot update [skip ci]"
             for i in 1 2 3; do
               git pull --rebase --autostash origin HEAD || true
               git push && exit 0

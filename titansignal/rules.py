@@ -14,7 +14,7 @@ from .indicators import (
     calculate_atr,
 )
 from .patterns import ema_rejection, resistance_test, pullback, double_top_bottom
-from .signal_store import append_signal_row, tehran_time_str
+from .signal_store import tehran_time_str
 
 logger = logging.getLogger(__name__)
 
@@ -463,13 +463,7 @@ async def generate_signal(
                 _last_signal_times[scenario_id] = {}
             _last_signal_times[scenario_id][symbol] = time.time()
 
-        append_signal_row(
-            symbol=symbol, direction=direction, entry_price=price_30m,
-            stop_loss=stop_loss, take_profit=take_profit, issued_at_tehran=time_str,
-            signal_source=";".join(str(r) for r in rule_results),
-            scenario_id=scenario_id or "", scenario_name=signal_dict.get("scenario_name", ""),
-        )
-
+        # CSV write happens once in bot.save_signal (with trail params + telegram_message_id)
         from .telegram_util import send_telegram, fmt_price
         dir_emoji = "🟢 LONG" if direction == "LONG" else "🔴 SHORT"
         name_fa = scenario.get("name_fa", "") if scenario else ""

@@ -1,3 +1,16 @@
+# Titan Signal v4.1.0
+
+## معماری داده (مهم)
+
+| فایل | نقش |
+|------|-----|
+| `data/signals/YYYY-MM-DD.csv` | **صدور و مدیریت سیگنال** (OPEN/CLOSED، تریل، outcome، telegram_message_id) |
+| `data/titan_signal.db` | **فقط کندل یک‌دقیقه‌ای ارزها** (`market_bars`) برای رصد و بک‌تست |
+
+سیگنال دیگر در SQLite ذخیره نمی‌شود.
+
+---
+
 # Titan Signal v4.0.0
 
 <p align="center">

@@ -22,9 +22,9 @@ from zoneinfo import ZoneInfo
 from titansignal.config import (
     LEVERAGE, MARGIN_USD, POSITION_USD, FEE_PER_TRADE,
 )
-from titansignal.database import (
-    init_db, get_open_signals, get_session, Signal, save_daily_summary,
-)
+from titansignal.database import init_db
+from titansignal.signal_store import get_open_signals
+
 from titansignal.signal_store import tehran_time_str
 from titansignal.version import VERSION_LABEL, __version__
 from titansignal.trailing import process_open_signals
@@ -161,19 +161,10 @@ async def main_async():
 
     # max_hold / eod are system exits — NEVER counted as manual_closes
     forces = sum(1 for x in closed if x.get("outcome") == "EOD_FORCE_CLOSE")
-    save_daily_summary(
-        date_str=report_date,
-        total=len(closed) + len(still_open),
-        open_count=len(still_open),
-        sl=stops,
-        trail=trails,
-        manual=0,
-        max_hold=0,  # explicit: do not store system exits as manual
-        tp=forces,   # reuse tp_hits column for EOD force-close count (display only in DB)
-        win_rate=wr,
-        total_pnl=pnl,
-        eod_force=forces,
-        max_hold_count=holds,
+    # daily stats stay in the Telegram report; signals live in CSV only
+    logger.info(
+        "Day stats closed=%s open=%s stops=%s trails=%s holds=%s eod=%s pnl=%+.4f",
+        len(closed), len(still_open), stops, trails, holds, forces, pnl,
     )
 
     if force:
