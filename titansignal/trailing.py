@@ -133,7 +133,7 @@ def walk_trailing(
     }
 
 
-def _sig_params(sig: Signal):
+def _sig_params(sig):
     sc = SCENARIOS.get(sig.scenario_id or "", {})
     entry = float(sig.entry_price or 0)
     direction = sig.direction
@@ -147,19 +147,25 @@ def _sig_params(sig: Signal):
     return entry, float(sl), activate, lock, max_hold
 
 
-def evaluate_signal(sig: Signal, force_close: bool = False) -> Optional[Dict[str, Any]]:
+def evaluate_signal(sig, force_close: bool = False) -> Optional[Dict[str, Any]]:
     """Evaluate one open signal against live/historical 30m data."""
     entry, sl, activate, lock, max_hold = _sig_params(sig)
     if not entry:
         return None
 
-    # entry time unix
-    start_unix = sig.issued_at_unix
-    if not start_unix and sig.issued_at:
-        dt = sig.issued_at
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        start_unix = int(dt.timestamp())
+    # entry time unix (OpenSignal provides issued_at_unix / issued_at)
+    start_unix = getattr(sig, "issued_at_unix", None) or None
+    try:
+        start_unix = int(start_unix) if start_unix else None
+    except (TypeError, ValueError):
+        start_unix = None
+    if not start_unix:
+        issued_at = getattr(sig, "issued_at", None)
+        if issued_at is not None:
+            dt = issued_at
+            if getattr(dt, "tzinfo", None) is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            start_unix = int(dt.timestamp())
     if not start_unix:
         start_unix = int(time.time()) - 3 * 86400
     end_unix = int(time.time())

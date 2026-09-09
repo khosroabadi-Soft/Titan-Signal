@@ -65,6 +65,14 @@ class OpenSignal:
         except Exception:
             return datetime.now(timezone.utc)
 
+    @property
+    def issued_at_unix(self) -> int:
+        """UTC unix timestamp for trailing candle window (required by trailing.py)."""
+        try:
+            return int(self.issued_at.timestamp())
+        except Exception:
+            return int(datetime.now(timezone.utc).timestamp())
+
 
 def ensure_dir():
     os.makedirs(SIGNALS_DIR, exist_ok=True)
