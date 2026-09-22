@@ -156,13 +156,15 @@ def outcome_label(outcome: str) -> str:
         "TRAIL_STOP": "🟢 خروج تریل",
         "MAX_HOLD": "⏰ سقف زمان",
         "EOD_FORCE_CLOSE": "⚠️ بستن اجباری پایان‌روز",
+        "MARGIN_CLOSE": "⚠️ بستن مارجین",
         "OPEN": "🟡 باز",
     }
     return m.get(outcome or "", outcome or "—")
 
 
 def build_exit_message(item: dict) -> str:
-    """فاخر exit card — full scenario name."""
+    """فاخر exit card — full scenario name with V4.2.0 details."""
+    from .version import VERSION_LABEL
     direction = item.get("direction") or ""
     dir_e = "🟢 LONG" if direction == "LONG" else "🔴 SHORT"
     pnl = item.get("net_pnl") or 0
@@ -170,6 +172,9 @@ def build_exit_message(item: dict) -> str:
     pnl_e = "📈" if pnl >= 0 else "📉"
     sc_name = scenario_full_name(item.get("scenario_id"), item.get("scenario_name"))
     symbol = item.get("symbol") or "—"
+    hold = item.get("hold", "—")
+    trail_on = item.get("trail_activated", False)
+    trail_status = "✅ فعال" if trail_on else "❌ غیرفعال"
     return (
         f"━━━━━━━━━━━━━━━━━━\n"
         f"📤 <b>نتیجه سیگنال</b>\n"
@@ -184,5 +189,9 @@ def build_exit_message(item: dict) -> str:
         f"خروج: <code>{fmt_price(item.get('exit_price'), symbol)}</code>\n"
         f"{pnl_e} PnL: <b>{pnl:+.4f}$</b>\n"
         f"ROI مارجین: <b>{roi:+.1f}%</b>\n"
+        f"تریل: {trail_status}\n"
+        f"کندل‌های نگهداری: {hold}\n"
         f"زمان ورود: {item.get('issued_at_tehran') or '—'}\n"
+        f"───────────\n"
+        f"<i>{VERSION_LABEL}</i>\n"
     )

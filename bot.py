@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""bot.py — Titan Signal Live Bot
+"""bot.py — Titan Signal Live Bot (V4.2.0 OperationalWindows)
 
 هر اجرا:
   1) مدیریت لایو سیگنال‌های OPEN (trailing)
-  2) تولید سیگنال‌های جدید
+  2) تولید سیگنال‌های جدید (فقط در پنجره 07:00–18:00 تهران)
+
+پنجره‌های عملیاتی:
+  07:00–18:00  صدور سیگنال جدید + مدیریت
+  18:00–02:00  فقط مدیریت سیگنال‌های باز (بدون صدور جدید)
+  02:00        بستن اجباری تمام سیگنال‌های باز (در monitor.py)
 
 Usage:
     python bot.py
@@ -17,7 +22,10 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from titansignal.config import SYMBOLS, SCENARIOS, ACTIVE_SCENARIOS
+from titansignal.config import (
+    SYMBOLS, SCENARIOS, ACTIVE_SCENARIOS,
+    SIGNAL_WINDOW_START, SIGNAL_WINDOW_END,
+)
 from titansignal.indicators import calculate_rsi, calculate_ema, calculate_macd, calculate_atr
 from titansignal.rules import generate_signal
 from titansignal.database import init_db, save_candles
@@ -34,15 +42,43 @@ logger = logging.getLogger(__name__)
 
 TEHRAN_TZ = ZoneInfo("Asia/Tehran")
 
-def is_quiet_hours(now=None) -> bool:
-    """20:00–23:30 Tehran: manage open signals only, no new signals."""
+
+def get_operational_mode(now=None) -> str:
+    """Determine operational mode based on Tehran time.
+
+    Returns:
+        'issue'     — 07:00–18:00: issue new signals + manage open
+        'manage'    — 18:00–02:00: manage open signals only, no new signals
+        'force_close' — 02:00–07:00: force-close (handled by monitor.py)
+    """
     now = now or datetime.now(TEHRAN_TZ)
     if now.tzinfo is None:
         now = now.replace(tzinfo=TEHRAN_TZ)
     else:
         now = now.astimezone(TEHRAN_TZ)
-    mins = now.hour * 60 + now.minute
-    return (20 * 60) <= mins < (23 * 60 + 30)
+    hour = now.hour
+
+    if SIGNAL_WINDOW_START <= hour < SIGNAL_WINDOW_END:
+        return 'issue'
+    elif hour >= SIGNAL_WINDOW_END or hour < FORCE_CLOSE_HOUR_DEF:
+        return 'manage'
+    else:
+        return 'force_close'
+
+
+# Default force-close hour for the bot's operational mode logic
+FORCE_CLOSE_HOUR_DEF = 2  # 02:00 Tehran
+
+
+def is_signal_window(now=None) -> bool:
+    """True if current Tehran time is within 07:00–18:00 signal issuance window."""
+    now = now or datetime.now(TEHRAN_TZ)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=TEHRAN_TZ)
+    else:
+        now = now.astimezone(TEHRAN_TZ)
+    return SIGNAL_WINDOW_START <= now.hour < SIGNAL_WINDOW_END
+
 
 KUCOIN_URL = "https://api.kucoin.com/api/v1/market/candles"
 INTERVALS = {
@@ -190,13 +226,19 @@ async def process_symbol(symbol, data, idx, total):
 async def main_async():
     init_db()
     from titansignal.version import VERSION_LABEL, __version__
+    now_tehran = datetime.now(TEHRAN_TZ)
+    op_mode = get_operational_mode(now_tehran)
+
     logger.info("=" * 60)
-    logger.info("Titan Signal %s — Live cycle (manage opens + new signals)", VERSION_LABEL)
+    logger.info("Titan Signal %s — Live cycle", VERSION_LABEL)
+    logger.info("Tehran time: %s", now_tehran.strftime("%Y-%m-%d %H:%M"))
+    logger.info("Operational mode: %s", op_mode)
     logger.info("Scenarios: %s", ", ".join(ACTIVE_SCENARIOS))
+    logger.info("Signal window: %02d:00–%02d:00 Tehran", SIGNAL_WINDOW_START, SIGNAL_WINDOW_END)
     logger.info("Symbols: %s", len(SYMBOLS))
     logger.info("=" * 60)
 
-    # 1) Live management of ALL open signals first
+    # 1) Live management of ALL open signals first (always runs)
     logger.info("Phase 1: trailing management of OPEN signals...")
     closed = process_open_signals(force_close=False)
     logger.info("Closed in phase 1: %s", len(closed))
@@ -205,11 +247,9 @@ async def main_async():
         if i < len(closed) - 1:
             await asyncio.sleep(1.1)
 
-    # 2) New signals — skipped in quiet hours 20:00–23:30 Tehran
-    if is_quiet_hours():
-        logger.info("Phase 2: SKIPPED (quiet hours 20:00–23:30 Tehran — manage only)")
-    else:
-        logger.info("Phase 2: scan for new signals...")
+    # 2) New signals — ONLY in signal issuance window (07:00–18:00 Tehran)
+    if op_mode == 'issue':
+        logger.info("Phase 2: signal issuance window — scanning for new signals...")
         async with aiohttp.ClientSession() as session:
             batch = 4
             for start in range(0, len(SYMBOLS), batch):
@@ -220,6 +260,12 @@ async def main_async():
                     idx = start + j + 1
                     await process_symbol(chunk[j], data, idx, len(SYMBOLS))
                 await asyncio.sleep(0.8)
+    elif op_mode == 'manage':
+        logger.info("Phase 2: SKIPPED — management-only window (18:00–02:00 Tehran)")
+        logger.info("Existing open signals are being managed; no new signals issued.")
+    else:
+        logger.info("Phase 2: SKIPPED — force-close window (02:00–07:00 Tehran)")
+        logger.info("Force-close is handled by monitor.py in 'final' mode.")
 
     logger.info("Titan Signal — Cycle complete")
 

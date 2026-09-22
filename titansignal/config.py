@@ -1,7 +1,8 @@
-"""config.py — Titan Signal Configuration (V3.1 Live)
+"""config.py — Titan Signal Configuration (V4.2.0 OperationalWindows)
 
 Trailing stop system with 10x leverage, $10 margin.
 V3.1: RSI zone filter applied ONLY on S1 Prometheus.
+V4.2.0: S3 Cronus → LONG-only; Operational time windows (7:00–18:00 / 18:00–02:00 / 02:00 force-close)
 """
 import os
 
@@ -110,14 +111,14 @@ SCENARIOS = {
     'S3': {
         'id': 'S3',
         'name_fa': 'کرونوس', 'name_en': 'Cronus',
-        'behavior_fa': 'فرمانروای دوطرفه', 'behavior_en': 'Dual-Direction Ruler',
-        'titan_desc_fa': 'پادشاه تایتان‌ها - در هر دو جهت صعودی و نزولی حکومت می‌کند',
+        'behavior_fa': 'فرمانروای صعودی', 'behavior_en': 'Long-Only Ruler',
+        'titan_desc_fa': 'پادشاه تایتان‌ها - فقط ترندهای صعودی را شکار می‌کند (SHORT غیرفعال)',
         'sl_pct': 0.040,
         'trail_activate': 0.003,
         'trail_lock': 0.90,
         'max_hold_candles': 120,  # 120 × 30min = 60 hours
         'score_min': 50,
-        'direction_only': None, 'rule_profile': 'strict', 'range_filter_mode': 'AND',
+        'direction_only': 'LONG', 'rule_profile': 'strict', 'range_filter_mode': 'AND',
         'extra_filters': None,
         'cooldown_seconds': 21600, 'symbols_list': SYMBOLS,
         'weight_threshold': 0.40, 'min_passed_rules': 5,
@@ -159,7 +160,17 @@ SCENARIOS = {
         'allowed_filters': [],
     },
 }
-ACTIVE_SCENARIOS = ['S1', 'S3', 'B1']  # S2/B2 disabled
+ACTIVE_SCENARIOS = ['S1', 'S3', 'B1']  # S2/B2 disabled; S3 LONG-only
+
+# ============================================================
+# V4.2.0 Operational Time Windows (Tehran timezone)
+# ============================================================
+# Signal issuance:   07:00 – 18:00 Tehran
+# Management only:   18:00 – 02:00+1 Tehran
+# Force close:       02:00+1 Tehran (in monitor.py final mode)
+SIGNAL_WINDOW_START = 7    # 07:00 Tehran — start issuing new signals
+SIGNAL_WINDOW_END = 18     # 18:00 Tehran — stop issuing, management only
+FORCE_CLOSE_HOUR = 2       # 02:00 Tehran — force-close all remaining opens
 
 
 def scenario_display_name(sc):

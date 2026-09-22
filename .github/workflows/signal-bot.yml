@@ -1,13 +1,20 @@
-# Titan Signal v4.1.1 — Live Bot
-# LOCKED: no ${{ env.* }} in job name
-name: Titan Signal Bot v4.1.1
+# Titan Signal v4.2.0 — Live Bot
+# V4.2.0 OperationalWindows:
+#   Signal issuance:  07:00–18:00 Tehran (03:30–14:30 UTC)
+#   Management only:  18:00–02:00 Tehran (14:30–22:30 UTC)
+#   Force close:      02:00 Tehran (22:30 UTC) — handled by nightly-monitor
+name: Titan Signal Bot v4.2.0
 
 on:
   schedule:
-    # 07:00-22:00 Tehran (UTC+3:30): every 30 minutes
-    # Quiet 20:00-23:30 is enforced in bot.py (manage only, no new signals)
-    - cron: '30 3-18 * * *'
-    - cron: '0 4-18 * * *'
+    # Signal issuance window: 07:00–18:00 Tehran = 03:30–14:30 UTC
+    # Every 30 minutes during this window
+    - cron: '30 3-14 * * *'
+    - cron: '0 4-14 * * *'
+    # Management-only window: 18:00–02:00 Tehran = 14:30–22:30 UTC
+    # Every 30 minutes during this window (bot.py will skip signal issuance)
+    - cron: '30 14-22 * * *'
+    - cron: '0 15-22 * * *'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +22,7 @@ permissions:
 
 jobs:
   run-bot:
-    name: Live Bot v4.1.1
+    name: Live Bot v4.2.0
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -37,7 +44,7 @@ jobs:
 
       - name: Show version
         run: |
-          echo "Titan Signal version: 4.1.1"
+          echo "Titan Signal version: 4.2.0"
           python -c "from titansignal.version import VERSION_LABEL; print(VERSION_LABEL)"
 
       - name: Run Signal Bot (manage + scan)
@@ -57,7 +64,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No data changes."
           else
-            git commit -m "chore(data): v4.1.1 live bot update [skip ci]"
+            git commit -m "chore(data): v4.2.0 live bot update [skip ci]"
             for i in 1 2 3; do
               git pull --rebase --autostash origin HEAD || true
               git push && exit 0
