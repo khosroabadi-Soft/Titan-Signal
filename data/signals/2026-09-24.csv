@@ -1,0 +1,3 @@
+signal_id,symbol,direction,scenario_id,scenario_name,entry_price,stop_loss,take_profit,issued_at_tehran,status,outcome,hit_time_tehran,hit_price,broker_fee,final_pnl_usd,position_size_usd,return_pct,signal_source,telegram_message_id,initial_sl,trail_activate,trail_lock,sl_pct,leverage,margin_usd,position_usd,max_hold_candles
+20260924-071237-001,LTC-USDT,LONG,S3,کرونوس (Cronus),67.10000000,64.41600000,0.00000000,2026-09-24 07:12:37,OPEN,,,,,,10.00,,titan_signal,14958,64.41600000,0.003000,0.9000,0.0400,10,10.00,100.00,120
+20260924-071238-002,LTC-USDT,LONG,B1,هایپریون (Hyperion),67.10000000,64.41600000,0.00000000,2026-09-24 07:12:38,OPEN,,,,,,10.00,,titan_signal,14959,64.41600000,0.003000,0.9000,0.0400,10,10.00,100.00,96
